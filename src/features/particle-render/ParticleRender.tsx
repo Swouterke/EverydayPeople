@@ -1,5 +1,5 @@
 import { useRef, useMemo } from "react";
-import { Canvas, useFrame, extend } from "@react-three/fiber";
+import { Canvas, useFrame, extend, useThree } from "@react-three/fiber";
 import type { ThreeElement } from "@react-three/fiber";
 import { OrbitControls, Effects } from "@react-three/drei";
 import { UnrealBloomPass } from "three-stdlib";
@@ -13,8 +13,14 @@ declare module "@react-three/fiber" {
 
 extend({ UnrealBloomPass });
 
+const AUTO_ROTATE_SPEED = 2;
+const ROTATION_CYCLE_SECONDS = 60 / AUTO_ROTATE_SPEED;
+const PULSE_MIN = 0.33;
+const PULSE_MAX = 0.88;
+
 const ParticleSwarm = () => {
   const meshRef = useRef<THREE.InstancedMesh | null>(null);
+  const viewportWidth = useThree((state) => state.size.width);
   const count = 30000;
   const speedMult = 0.1;
   const dummy = useMemo(() => new THREE.Object3D(), []);
@@ -23,7 +29,6 @@ const ParticleSwarm = () => {
   const color = pColor; // Alias for user code compatibility
   const posDataRef = useRef<number[] | null>(null);
   const colDataRef = useRef<number[] | null>(null);
-  const colorsInitializedRef = useRef(false);
 
   const seededRandom = (seed: number) => {
     const x = Math.sin(seed * 12.9898) * 43758.5453;
@@ -50,9 +55,28 @@ const ParticleSwarm = () => {
     [],
   );
   const geometry = useMemo(() => new THREE.BoxGeometry(0.3, 0.3, 0.3), []);
+  const cubeScale =
+    viewportWidth < 480
+      ? 0.5
+      : viewportWidth < 768
+        ? 0.62
+        : viewportWidth < 1024
+          ? 0.8
+          : 1;
 
-  useFrame(() => {
+  useFrame((state) => {
     if (!meshRef.current) return;
+
+    const pulsePhase =
+      (state.clock.elapsedTime / ROTATION_CYCLE_SECONDS) * Math.PI * 2 -
+      Math.PI / 2;
+    const pulseNormalized = (Math.sin(pulsePhase) + 1) * 0.5;
+    const pulseStrength = THREE.MathUtils.lerp(
+      PULSE_MIN,
+      PULSE_MAX,
+      pulseNormalized,
+    );
+
     for (let i = 0; i < count; i++) {
       // USER CODE START
       // STATIC FORMATION EXPORT
@@ -13169,20 +13193,19 @@ const ParticleSwarm = () => {
         COL_DATA[idx + 1] / 255,
         COL_DATA[idx + 2] / 255,
       );
+      color.multiplyScalar(pulseStrength);
       // USER CODE END
 
       positions[i].lerp(target, speedMult);
       dummy.position.copy(positions[i]);
+      dummy.scale.setScalar(cubeScale);
       dummy.updateMatrix();
       meshRef.current.setMatrixAt(i, dummy.matrix);
-      if (!colorsInitializedRef.current) {
-        meshRef.current.setColorAt(i, pColor);
-      }
+      meshRef.current.setColorAt(i, pColor);
     }
     meshRef.current.instanceMatrix.needsUpdate = true;
-    if (!colorsInitializedRef.current && meshRef.current.instanceColor) {
+    if (meshRef.current.instanceColor) {
       meshRef.current.instanceColor.needsUpdate = true;
-      colorsInitializedRef.current = true;
     }
   });
 
@@ -13190,16 +13213,24 @@ const ParticleSwarm = () => {
 };
 
 export default function ParticleRender() {
+  const isMobileViewport =
+    typeof window !== "undefined" &&
+    window.matchMedia("(max-width: 768px)").matches;
+
   return (
-    <div style={{ width: "100vw", height: "100vh", background: "#000" }}>
+    <div className="particle-layer">
       <Canvas
+        style={{ width: "100%", height: "100%" }}
         dpr={[1, 1.5]}
         gl={{ antialias: false, powerPreference: "high-performance" }}
-        camera={{ position: [0, 0, 100], fov: 60 }}
+        camera={{
+          position: [0, 0, isMobileViewport ? 125 : 100],
+          fov: isMobileViewport ? 68 : 60,
+        }}
       >
         <fog attach="fog" args={["#000000", 0.01]} />
         <ParticleSwarm />
-        <OrbitControls autoRotate={true} />
+        <OrbitControls autoRotate={true} autoRotateSpeed={AUTO_ROTATE_SPEED} />
         <Effects disableGamma>
           <unrealBloomPass
             args={[new THREE.Vector2(1024, 1024), 1.8, 0.4, 0]}
