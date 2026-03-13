@@ -25,15 +25,15 @@ const VISUAL_PRESET = {
   dotDensity: 1,
   dotSizeMult: 0.55,
   baseGeometrySize: 0.14,
-  brightnessBoost: 1.72,
-  tintMix: 0.72,
-  tintColor: "#a6e7ff",
-  materialColor: 0x9ddfff,
-  emissiveColor: 0x123f5a,
-  emissiveIntensity: 0.28,
-  bloomStrength: 0.34,
+  brightnessBoost: 1.98,
+  tintMix: 0.78,
+  tintColor: "#d6f3ff",
+  materialColor: 0xc7efff,
+  emissiveColor: 0x4fa6cc,
+  emissiveIntensity: 0.34,
+  bloomStrength: 0.42,
   bloomRadius: 0.18,
-  bloomThreshold: 0.62,
+  bloomThreshold: 0.56,
 } as const;
 
 const ParticleSwarm = () => {
@@ -217,17 +217,17 @@ export default function ParticleRender() {
           fov: isMobileViewport ? 68 : 60,
         }}
       >
-        <fog attach="fog" args={["#000000", 0.01]} />
-        <ambientLight intensity={0.62} />
+        <fog attach="fog" args={["#dff4ff", 16, 155]} />
+        <ambientLight intensity={0.95} color="#e8f8ff" />
         <directionalLight
           position={[35, 44, 38]}
-          intensity={0.9}
-          color="#d5f5ff"
+          intensity={1.15}
+          color="#e7f8ff"
         />
         <directionalLight
           position={[-28, -22, 25]}
-          intensity={0.5}
-          color="#8ad7ff"
+          intensity={0.78}
+          color="#bfe9ff"
         />
         <ParticleSwarm />
         <OrbitControls autoRotate={true} autoRotateSpeed={AUTO_ROTATE_SPEED} />

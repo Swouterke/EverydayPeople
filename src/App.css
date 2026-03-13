@@ -10,7 +10,12 @@
   width: 100%;
   min-height: 100dvh;
   overflow: hidden;
-  background: #000;
+  background: radial-gradient(
+    circle at 20% 20%,
+    #f4fdff 0%,
+    #d9f2ff 42%,
+    #c3e8ff 100%
+  );
 }
 
 .particle-layer {
@@ -25,11 +30,11 @@
   bottom: max(12px, env(safe-area-inset-bottom));
   z-index: 20;
   padding: 14px 16px;
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  border: 1px solid rgba(116, 178, 214, 0.42);
   border-radius: 12px;
-  background: rgba(15, 16, 18, 0.82);
+  background: rgba(244, 252, 255, 0.82);
   backdrop-filter: blur(8px);
-  color: #f2f4f7;
+  color: #0f3e59;
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
 }
 
@@ -41,7 +46,7 @@
 
 .events-panel p {
   margin: 0;
-  color: rgba(242, 244, 247, 0.84);
+  color: rgba(22, 83, 113, 0.86);
   font-size: clamp(0.88rem, 1.6vw, 0.96rem);
   line-height: 1.4;
 }
