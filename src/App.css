@@ -51,6 +51,28 @@
   line-height: 1.4;
 }
 
+.refresh-button {
+  margin-top: 12px;
+  padding: 8px 16px;
+  background: rgba(116, 178, 214, 0.3);
+  border: 1px solid rgba(116, 178, 214, 0.6);
+  border-radius: 6px;
+  color: #0f3e59;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.refresh-button:hover {
+  background: rgba(116, 178, 214, 0.5);
+  border-color: rgba(116, 178, 214, 0.8);
+}
+
+.refresh-button:active {
+  transform: scale(0.98);
+}
+
 @media (max-width: 640px) {
   .events-panel {
     width: min(220px, calc(100vw - 20px));

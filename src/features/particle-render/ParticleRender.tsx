@@ -1,4 +1,10 @@
-import { useRef, useMemo, useEffect } from "react";
+import {
+  useRef,
+  useMemo,
+  useEffect,
+  forwardRef,
+  useImperativeHandle,
+} from "react";
 import { Canvas, useFrame, extend, useThree } from "@react-three/fiber";
 import type { ThreeElement } from "@react-three/fiber";
 import { OrbitControls, Effects } from "@react-three/drei";
@@ -18,6 +24,9 @@ const AUTO_ROTATE_SPEED = 2;
 const ROTATION_CYCLE_SECONDS = 60 / AUTO_ROTATE_SPEED;
 const PULSE_MIN = 0.33;
 const PULSE_MAX = 0.88;
+const CLICK_HIT_RADIUS_XY = 3.2;
+const DROP_ACCELERATION = 0.09;
+const DROP_DAMPING = 0.985;
 const VISUAL_PRESET = {
   tubeLayers: 9,
   tubeDepth: 4.2,
@@ -36,9 +45,10 @@ const VISUAL_PRESET = {
   bloomThreshold: 0.56,
 } as const;
 
-const ParticleSwarm = () => {
+const ParticleSwarm = forwardRef<{ reset: () => void }, object>((_, ref) => {
   const meshRef = useRef<THREE.InstancedMesh | null>(null);
   const viewportWidth = useThree((state) => state.size.width);
+  const { camera } = useThree();
   const count = 42000;
   const speedMult = 0.1;
   const dummy = useMemo(() => new THREE.Object3D(), []);
@@ -46,11 +56,28 @@ const ParticleSwarm = () => {
   const pColor = useMemo(() => new THREE.Color(), []);
   const tintColor = useMemo(() => new THREE.Color(VISUAL_PRESET.tintColor), []);
   const color = pColor; // Alias for user code compatibility
+  const clickPos = useRef(new THREE.Vector3(0, 0, 0));
+  const raycaster = useMemo(() => new THREE.Raycaster(), []);
+  const velocities = useRef(
+    Array.from({ length: count }, () => new THREE.Vector3(0, 0, 0)),
+  );
+  const droppingParticles = useRef<Set<number>>(new Set());
+  const removedParticles = useRef<Set<number>>(new Set());
   const designIds = useMemo(
     () => Object.keys(particleDesigns) as Array<keyof typeof particleDesigns>,
     [],
   );
   const activeDesignRef = useRef(particleDesigns[designIds[0]]);
+
+  useImperativeHandle(ref, () => ({
+    reset: () => {
+      removedParticles.current.clear();
+      droppingParticles.current.clear();
+      for (let i = 0; i < count; i++) {
+        velocities.current[i].set(0, 0, 0);
+      }
+    },
+  }));
 
   useEffect(() => {
     const randomIndex = Math.floor(Math.random() * designIds.length);
@@ -75,6 +102,52 @@ const ParticleSwarm = () => {
     }
     return pos;
   }, []);
+
+  useEffect(() => {
+    const clickPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
+
+    const handleClick = (event: MouseEvent) => {
+      const canvasElement = event.currentTarget as HTMLCanvasElement | null;
+      if (!canvasElement) return;
+
+      const rect = canvasElement.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return;
+
+      const x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      const y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+      raycaster.setFromCamera(new THREE.Vector2(x, y), camera);
+      const hasIntersection = raycaster.ray.intersectPlane(
+        clickPlane,
+        clickPos.current,
+      );
+      if (!hasIntersection) return;
+
+      const hitRadiusSq = CLICK_HIT_RADIUS_XY * CLICK_HIT_RADIUS_XY;
+      for (let i = 0; i < count; i++) {
+        if (
+          removedParticles.current.has(i) ||
+          droppingParticles.current.has(i)
+        ) {
+          continue;
+        }
+
+        const dx = positions[i].x - clickPos.current.x;
+        const dy = positions[i].y - clickPos.current.y;
+        const distSq = dx * dx + dy * dy;
+        if (distSq <= hitRadiusSq) {
+          droppingParticles.current.add(i);
+          velocities.current[i].set(0, -0.35, 0);
+        }
+      }
+    };
+
+    const canvasElement = document.querySelector("canvas");
+    if (!canvasElement) return;
+
+    canvasElement.addEventListener("click", handleClick);
+    return () => canvasElement.removeEventListener("click", handleClick);
+  }, [camera, count, positions, raycaster]);
 
   // Material & Geom
   const material = useMemo(
@@ -120,6 +193,48 @@ const ParticleSwarm = () => {
     );
 
     for (let i = 0; i < count; i++) {
+      // Check if particle is removed - if so, hide it
+      if (removedParticles.current.has(i)) {
+        dummy.position.copy(positions[i]);
+        dummy.scale.setScalar(0);
+        dummy.updateMatrix();
+        meshRef.current.setMatrixAt(i, dummy.matrix);
+        continue;
+      }
+
+      if (droppingParticles.current.has(i)) {
+        const bottomLimit = -(state.viewport.height * 0.75);
+        velocities.current[i].y -= DROP_ACCELERATION;
+        velocities.current[i].multiplyScalar(DROP_DAMPING);
+        positions[i].add(velocities.current[i]);
+
+        if (positions[i].y <= bottomLimit) {
+          droppingParticles.current.delete(i);
+          removedParticles.current.add(i);
+          dummy.position.copy(positions[i]);
+          dummy.scale.setScalar(0);
+          dummy.updateMatrix();
+          meshRef.current.setMatrixAt(i, dummy.matrix);
+          continue;
+        }
+
+        pColor.setRGB(0.82, 0.9, 1);
+        dummy.position.copy(positions[i]);
+        const perspectiveScale = THREE.MathUtils.clamp(
+          1 + positions[i].z * 0.012,
+          0.72,
+          1.25,
+        );
+        dummy.scale.setScalar(
+          cubeScale * VISUAL_PRESET.dotSizeMult * perspectiveScale,
+        );
+        dummy.rotation.set(0, 0, 0);
+        dummy.updateMatrix();
+        meshRef.current.setMatrixAt(i, dummy.matrix);
+        meshRef.current.setColorAt(i, pColor);
+        continue;
+      }
+
       // USER CODE START
       // STATIC FORMATION EXPORT
       const POS_DATA = activeDesignRef.current.positions;
@@ -177,6 +292,13 @@ const ParticleSwarm = () => {
       // USER CODE END
 
       positions[i].lerp(target, speedMult);
+
+      // Apply velocity
+      positions[i].add(velocities.current[i]);
+
+      // Damping - gradually return to zero velocity
+      velocities.current[i].multiplyScalar(0.92);
+
       dummy.position.copy(positions[i]);
       const perspectiveScale = THREE.MathUtils.clamp(
         1 + positions[i].z * 0.012,
@@ -199,49 +321,66 @@ const ParticleSwarm = () => {
   });
 
   return <instancedMesh ref={meshRef} args={[geometry, material, count]} />;
-};
+});
 
-export default function ParticleRender() {
-  const isMobileViewport =
-    typeof window !== "undefined" &&
-    window.matchMedia("(max-width: 768px)").matches;
+ParticleSwarm.displayName = "ParticleSwarm";
 
-  return (
-    <div className="particle-layer">
-      <Canvas
-        style={{ width: "100%", height: "100%" }}
-        dpr={[1.25, 2]}
-        gl={{ antialias: false, powerPreference: "high-performance" }}
-        camera={{
-          position: [0, 0, isMobileViewport ? 105 : 82],
-          fov: isMobileViewport ? 68 : 60,
-        }}
-      >
-        <fog attach="fog" args={["#dff4ff", 16, 155]} />
-        <ambientLight intensity={0.95} color="#e8f8ff" />
-        <directionalLight
-          position={[35, 44, 38]}
-          intensity={1.15}
-          color="#e7f8ff"
-        />
-        <directionalLight
-          position={[-28, -22, 25]}
-          intensity={0.78}
-          color="#bfe9ff"
-        />
-        <ParticleSwarm />
-        <OrbitControls autoRotate={true} autoRotateSpeed={AUTO_ROTATE_SPEED} />
-        <Effects disableGamma>
-          <unrealBloomPass
-            args={[
-              new THREE.Vector2(1024, 1024),
-              VISUAL_PRESET.bloomStrength,
-              VISUAL_PRESET.bloomRadius,
-              VISUAL_PRESET.bloomThreshold,
-            ]}
+export default forwardRef<{ reset: () => void }, object>(
+  function ParticleRenderComponent(_, ref) {
+    const particleSwarmRef = useRef<{ reset: () => void }>(null);
+    const isMobileViewport =
+      typeof window !== "undefined" &&
+      window.matchMedia("(max-width: 768px)").matches;
+
+    useImperativeHandle(ref, () => ({
+      reset: () => {
+        particleSwarmRef.current?.reset();
+      },
+    }));
+
+    return (
+      <div className="particle-layer">
+        <Canvas
+          style={{ width: "100%", height: "100%" }}
+          dpr={[1.25, 2]}
+          gl={{
+            antialias: false,
+            powerPreference: "high-performance",
+          }}
+          camera={{
+            position: [0, 0, isMobileViewport ? 105 : 82],
+            fov: isMobileViewport ? 68 : 60,
+          }}
+        >
+          <fog attach="fog" args={["#dff4ff", 16, 155]} />
+          <ambientLight intensity={0.95} color="#e8f8ff" />
+          <directionalLight
+            position={[35, 44, 38]}
+            intensity={1.15}
+            color="#e7f8ff"
           />
-        </Effects>
-      </Canvas>
-    </div>
-  );
-}
+          <directionalLight
+            position={[-28, -22, 25]}
+            intensity={0.78}
+            color="#bfe9ff"
+          />
+          <ParticleSwarm ref={particleSwarmRef} />
+          <OrbitControls
+            autoRotate={true}
+            autoRotateSpeed={AUTO_ROTATE_SPEED}
+          />
+          <Effects disableGamma>
+            <unrealBloomPass
+              args={[
+                new THREE.Vector2(1024, 1024),
+                VISUAL_PRESET.bloomStrength,
+                VISUAL_PRESET.bloomRadius,
+                VISUAL_PRESET.bloomThreshold,
+              ]}
+            />
+          </Effects>
+        </Canvas>
+      </div>
+    );
+  },
+);
