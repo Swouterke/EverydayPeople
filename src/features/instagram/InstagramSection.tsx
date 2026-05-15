@@ -146,6 +146,12 @@ export default function InstagramSection({
 
   const [activeInstagramIndex, setActiveInstagramIndex] = useState(0);
   const [activeYoutubeIndex, setActiveYoutubeIndex] = useState(0);
+  const [embedFailures, setEmbedFailures] = useState<
+    Partial<Record<EmbedPlatform, boolean>>
+  >({});
+  const isGithubPagesHost =
+    typeof window !== "undefined" &&
+    window.location.hostname.toLowerCase().endsWith("github.io");
 
   useEffect(() => {
     if (instagramTargets.length <= 1) {
@@ -215,6 +221,12 @@ export default function InstagramSection({
     setActiveYoutubeIndex((current) => (current + 1) % youtubeTargets.length);
   };
 
+  const handleEmbedError = (platform: EmbedPlatform) => {
+    setEmbedFailures((current) =>
+      current[platform] ? current : { ...current, [platform]: true },
+    );
+  };
+
   return (
     <section className="instagram-section" aria-label="Instagram">
       <div className="instagram-card">
@@ -245,25 +257,58 @@ export default function InstagramSection({
             <div className="instagram-stack-host">
               {renderTargets.map((target) => {
                 const isFrontCard = target.platform === effectiveFrontPlatform;
+                const isInstagramBlocked =
+                  target.platform === "instagram" &&
+                  (isGithubPagesHost || Boolean(embedFailures.instagram));
+                const isYoutubeBlocked =
+                  target.platform === "youtube" &&
+                  Boolean(embedFailures.youtube);
+                const isEmbedBlocked = isInstagramBlocked || isYoutubeBlocked;
                 return (
                   <button
                     key={target.platform}
                     type="button"
                     className={`instagram-media-card${
                       isFrontCard ? " is-front" : " is-back"
-                    }`}
-                    aria-label={`${target.platform} card`}
+                    }${isEmbedBlocked ? " is-link-card" : ""}`}
+                    aria-label={
+                      isEmbedBlocked
+                        ? `Open ${target.platform} in a new tab`
+                        : `${target.platform} card`
+                    }
+                    onClick={
+                      isEmbedBlocked
+                        ? () => {
+                            window.open(
+                              target.profileUrl,
+                              "_blank",
+                              "noopener,noreferrer",
+                            );
+                          }
+                        : undefined
+                    }
                   >
                     <div className="instagram-embed-host">
-                      <iframe
-                        src={target.embedUrl}
-                        title={`${target.platform} embed`}
-                        className={`instagram-embed ${
-                          isFrontCard ? "is-front-embed" : "is-back-embed"
-                        }`}
-                        loading="lazy"
-                        allow="autoplay; clipboard-write; encrypted-media; picture-in-picture"
-                      />
+                      {isEmbedBlocked ? (
+                        <div className="instagram-embed-blocked">
+                          <p>
+                            {isInstagramBlocked && isGithubPagesHost
+                              ? "Instagram blocks iframe embeds on GitHub Pages. Click to open this post on Instagram."
+                              : `Could not load this ${target.platform} embed. Click to open it in a new tab.`}
+                          </p>
+                        </div>
+                      ) : (
+                        <iframe
+                          src={target.embedUrl}
+                          title={`${target.platform} embed`}
+                          className={`instagram-embed ${
+                            isFrontCard ? "is-front-embed" : "is-back-embed"
+                          }`}
+                          loading="lazy"
+                          allow="autoplay; clipboard-write; encrypted-media; picture-in-picture"
+                          onError={() => handleEmbedError(target.platform)}
+                        />
+                      )}
                       {target.platform === "youtube" ? (
                         <div className="muted-audio-badge" aria-hidden="true">
                           <svg viewBox="0 0 24 24" className="muted-audio-icon">

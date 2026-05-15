@@ -118,6 +118,10 @@
   box-shadow: 0 12px 22px rgba(10, 42, 64, 0.2);
 }
 
+.instagram-media-card.is-link-card {
+  cursor: pointer;
+}
+
 .instagram-embed-host {
   width: 100%;
   height: 100%;
@@ -134,6 +138,27 @@
   border: 0;
   border-radius: 10px;
   background: #ffffff;
+}
+
+.instagram-embed-blocked {
+  width: 100%;
+  height: 100%;
+  border-radius: 10px;
+  background: linear-gradient(155deg, #f6fcff 0%, #d4ecfb 100%);
+  border: 1px solid rgba(79, 149, 188, 0.45);
+  display: grid;
+  place-items: center;
+  padding: 22px;
+  box-sizing: border-box;
+  text-align: center;
+}
+
+.instagram-embed-blocked p {
+  margin: 0;
+  color: #0f3e59;
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.45;
 }
 
 .instagram-embed.is-back-embed {
