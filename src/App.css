@@ -456,17 +456,16 @@
 
   .split-layout {
     grid-template-columns: 1fr;
-    grid-template-rows: 52dvh auto;
+    grid-template-rows: 1fr;
     min-height: 100dvh;
   }
 
   .scene-section {
-    border-right: 0;
-    border-bottom: 1px solid rgba(116, 178, 214, 0.24);
+    display: none;
   }
 
   .instagram-section {
-    min-height: 56dvh;
+    min-height: 100dvh;
     padding: 6px;
   }
 
@@ -479,11 +478,17 @@
   .instagram-swap-button {
     right: 8px;
     top: auto;
-    bottom: 12px;
+    bottom: max(24px, calc(env(safe-area-inset-bottom) + 12px));
     transform: none;
     width: 64px;
     height: 64px;
     border-radius: 16px;
+    transition: background 0.2s ease;
+  }
+
+  .instagram-swap-button:hover,
+  .instagram-swap-button:active {
+    transform: none;
   }
 
   .instagram-swap-button svg {
@@ -512,9 +517,13 @@
 
   .events-panel {
     width: min(220px, calc(100vw - 20px));
-    left: max(10px, env(safe-area-inset-left));
-    bottom: max(10px, env(safe-area-inset-bottom));
+    left: auto;
+    right: max(10px, env(safe-area-inset-right));
+    top: max(10px, env(safe-area-inset-top));
+    bottom: auto;
     padding: 10px 12px;
+    max-height: min(38dvh, 260px);
+    overflow: auto;
   }
 
   .events-panel h2 {
@@ -524,5 +533,9 @@
   .events-panel p {
     font-size: 0.82rem;
     line-height: 1.35;
+  }
+
+  .events-panel .refresh-button {
+    display: none;
   }
 }
