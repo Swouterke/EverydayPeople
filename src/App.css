@@ -8,7 +8,7 @@
 .app-shell {
   position: relative;
   width: 100%;
-  min-height: 100dvh;
+  height: 100dvh;
   overflow: hidden;
   background: radial-gradient(
     circle at 20% 20%,
@@ -18,17 +18,320 @@
   );
 }
 
+.split-layout {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  width: 100%;
+  height: 100%;
+}
+
+.scene-section {
+  position: relative;
+  z-index: 10;
+  height: 100%;
+  pointer-events: auto;
+}
+
 .particle-layer {
   position: absolute;
   inset: 0;
+  z-index: 11;
+  pointer-events: auto;
+}
+
+.instagram-section {
+  position: relative;
+  height: 100%;
+  z-index: 5;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.instagram-card {
+  --stack-max-width: 736px;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.instagram-tilt-layer {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform-style: preserve-3d;
+  transform-origin: center center;
+  will-change: transform;
+  transition: transform 180ms ease-out;
+}
+
+.instagram-tilt-layer.is-dragging {
+  transition: none;
+}
+
+.instagram-stack-host {
+  --stack-offset-x: 56px;
+  --stack-offset-y: 48px;
+  --next-button-space: 86px;
+  position: relative;
+  width: min(100%, 736px);
+  height: min(95dvh, 936px);
+  margin: auto;
+}
+
+.instagram-media-card {
+  position: absolute;
+  width: calc(100% - var(--stack-offset-x));
+  height: calc(100% - var(--stack-offset-y) - var(--next-button-space));
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: default;
+  transition:
+    transform 200ms ease,
+    box-shadow 200ms ease,
+    opacity 200ms ease;
+}
+
+.instagram-media-card.is-front {
+  z-index: 2;
+  top: var(--stack-offset-y);
+  left: var(--stack-offset-x);
+  transform: scale(1);
+  opacity: 1;
+  box-shadow: 0 14px 26px rgba(10, 42, 64, 0.24);
+}
+
+.instagram-media-card.is-back {
   z-index: 1;
+  top: 0;
+  left: 0;
+  transform: scale(0.95);
+  opacity: 0.8;
+  box-shadow: 0 12px 22px rgba(10, 42, 64, 0.2);
+}
+
+.instagram-embed-host {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+.instagram-embed {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.instagram-embed.is-back-embed {
+  pointer-events: none;
+}
+
+.muted-audio-badge {
+  position: absolute;
+  top: -18px;
+  left: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 999px;
+  background: rgba(11, 28, 39, 0.78);
+  color: #e8f7ff;
+  box-shadow: 0 8px 18px rgba(8, 28, 44, 0.28);
+  pointer-events: none;
+  animation: mutedBadgeJump 1.35s ease-in-out infinite;
+  z-index: 3;
+}
+
+.muted-audio-icon {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+}
+
+.muted-audio-text {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.muted-bars {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 14px;
+}
+
+.muted-bars .bar {
+  width: 3px;
+  border-radius: 3px;
+  background: #8be1ff;
+  transform-origin: bottom center;
+  animation: mutedBarPulse 0.9s ease-in-out infinite;
+}
+
+.muted-bars .bar-1 {
+  height: 6px;
+  animation-delay: 0s;
+}
+
+.muted-bars .bar-2 {
+  height: 11px;
+  animation-delay: 0.12s;
+}
+
+.muted-bars .bar-3 {
+  height: 8px;
+  animation-delay: 0.24s;
+}
+
+@keyframes mutedBadgeJump {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  35% {
+    transform: translateY(-2px);
+  }
+
+  60% {
+    transform: translateY(1px);
+  }
+}
+
+@keyframes mutedBarPulse {
+  0%,
+  100% {
+    transform: scaleY(0.5);
+    opacity: 0.65;
+  }
+
+  50% {
+    transform: scaleY(1.08);
+    opacity: 1;
+  }
+}
+
+.instagram-swap-button {
+  position: absolute;
+  right: max(8px, calc((100% - min(100%, var(--stack-max-width))) / 2 - 100px));
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 3;
+  width: 84px;
+  height: 84px;
+  border-radius: 20px;
+  border: 3px solid rgba(255, 255, 255, 0.95);
+  background: linear-gradient(150deg, #0f4b6c 0%, #0a3953 100%);
+  color: #ffffff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  box-shadow:
+    0 14px 28px rgba(10, 42, 64, 0.28),
+    0 0 0 1px rgba(15, 75, 108, 0.45);
+}
+
+.instagram-swap-button:hover {
+  background: linear-gradient(145deg, #14618c 0%, #1c79aa 100%);
+  transform: translateY(-50%) scale(1.05);
+}
+
+.instagram-swap-button svg {
+  width: 36px;
+  height: 36px;
+}
+
+.youtube-next-button {
+  position: absolute;
+  left: calc(var(--stack-offset-x) + ((100% - var(--stack-offset-x)) / 2));
+  bottom: 12px;
+  transform: translateX(-50%);
+  z-index: 4;
+  width: 58px;
+  height: 58px;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, 0.92);
+  background: linear-gradient(145deg, #0e567b 0%, #0a3b56 100%);
+  color: #ffffff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  box-shadow:
+    0 12px 22px rgba(8, 33, 50, 0.3),
+    0 0 0 1px rgba(14, 86, 123, 0.4);
+}
+
+.youtube-next-button:hover {
+  background: linear-gradient(145deg, #1570a0 0%, #105678 100%);
+  transform: translateX(-50%) scale(1.05);
+}
+
+.youtube-next-button svg {
+  width: 30px;
+  height: 30px;
+}
+
+.instagram-fallback {
+  width: min(560px, calc(100% - 24px));
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 12px;
+  border: 1px dashed rgba(116, 178, 214, 0.65);
+  border-radius: 10px;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 8px 22px rgba(12, 56, 81, 0.18);
+  margin: auto;
+  margin-top: max(16px, env(safe-area-inset-top));
+  margin-bottom: max(16px, env(safe-area-inset-bottom));
+}
+
+.instagram-note {
+  margin: 0;
+  color: rgba(22, 83, 113, 0.9);
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+.instagram-link {
+  width: fit-content;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(116, 178, 214, 0.65);
+  background: rgba(116, 178, 214, 0.2);
+  color: #0f3e59;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.instagram-link:hover {
+  background: rgba(116, 178, 214, 0.35);
 }
 
 .events-panel {
-  position: absolute;
+  position: fixed;
   left: max(12px, env(safe-area-inset-left));
   bottom: max(12px, env(safe-area-inset-bottom));
   z-index: 20;
+  pointer-events: auto;
   padding: 14px 16px;
   border: 1px solid rgba(116, 178, 214, 0.42);
   border-radius: 12px;
@@ -74,6 +377,65 @@
 }
 
 @media (max-width: 640px) {
+  .app-shell {
+    height: auto;
+    min-height: 100dvh;
+    overflow-y: auto;
+  }
+
+  .split-layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: 52dvh auto;
+    min-height: 100dvh;
+  }
+
+  .scene-section {
+    border-right: 0;
+    border-bottom: 1px solid rgba(116, 178, 214, 0.24);
+  }
+
+  .instagram-section {
+    min-height: 56dvh;
+    padding: 6px;
+  }
+
+  .instagram-stack-host {
+    --stack-offset-x: 28px;
+    --stack-offset-y: 24px;
+    --next-button-space: 70px;
+  }
+
+  .instagram-swap-button {
+    right: 8px;
+    top: auto;
+    bottom: 12px;
+    transform: none;
+    width: 64px;
+    height: 64px;
+    border-radius: 16px;
+  }
+
+  .instagram-swap-button svg {
+    width: 28px;
+    height: 28px;
+  }
+
+  .youtube-next-button {
+    width: 48px;
+    height: 48px;
+    bottom: 8px;
+    transform: translateX(-50%);
+  }
+
+  .youtube-next-button:hover {
+    transform: translateX(-50%) scale(1.04);
+  }
+
+  .youtube-next-button svg {
+    width: 24px;
+    height: 24px;
+  }
+
   .events-panel {
     width: min(220px, calc(100vw - 20px));
     left: max(10px, env(safe-area-inset-left));

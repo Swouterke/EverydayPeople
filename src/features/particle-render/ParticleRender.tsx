@@ -7,7 +7,7 @@ import {
 } from "react";
 import { Canvas, useFrame, extend, useThree } from "@react-three/fiber";
 import type { ThreeElement } from "@react-three/fiber";
-import { OrbitControls, Effects } from "@react-three/drei";
+import { OrbitControls } from "@react-three/drei";
 import { UnrealBloomPass } from "three-stdlib";
 import * as THREE from "three";
 import { particleDesigns } from "./designs";
@@ -34,12 +34,12 @@ const VISUAL_PRESET = {
   dotDensity: 1,
   dotSizeMult: 0.55,
   baseGeometrySize: 0.14,
-  brightnessBoost: 1.98,
-  tintMix: 0.78,
-  tintColor: "#d6f3ff",
-  materialColor: 0xc7efff,
-  emissiveColor: 0x4fa6cc,
-  emissiveIntensity: 0.34,
+  brightnessBoost: 2.25,
+  tintMix: 0.56,
+  tintColor: "#ff9f4a",
+  materialColor: 0xff8a2d,
+  emissiveColor: 0xff4f00,
+  emissiveIntensity: 0.7,
   bloomStrength: 0.42,
   bloomRadius: 0.18,
   bloomThreshold: 0.56,
@@ -156,6 +156,8 @@ const ParticleSwarm = forwardRef<{ reset: () => void }, object>((_, ref) => {
         color: VISUAL_PRESET.materialColor,
         roughness: 0.4,
         metalness: 0.12,
+        transparent: true,
+        opacity: 0.82,
         emissive: VISUAL_PRESET.emissiveColor,
         emissiveIntensity: VISUAL_PRESET.emissiveIntensity,
       }),
@@ -218,7 +220,7 @@ const ParticleSwarm = forwardRef<{ reset: () => void }, object>((_, ref) => {
           continue;
         }
 
-        pColor.setRGB(0.82, 0.9, 1);
+        pColor.setRGB(1, 0.68, 0.32);
         dummy.position.copy(positions[i]);
         const perspectiveScale = THREE.MathUtils.clamp(
           1 + positions[i].z * 0.012,
@@ -345,7 +347,11 @@ export default forwardRef<{ reset: () => void }, object>(
           dpr={[1.25, 2]}
           gl={{
             antialias: false,
+            alpha: true,
             powerPreference: "high-performance",
+          }}
+          onCreated={({ gl }) => {
+            gl.setClearColor(0x000000, 0);
           }}
           camera={{
             position: [0, 0, isMobileViewport ? 105 : 82],
@@ -369,16 +375,6 @@ export default forwardRef<{ reset: () => void }, object>(
             autoRotate={true}
             autoRotateSpeed={AUTO_ROTATE_SPEED}
           />
-          <Effects disableGamma>
-            <unrealBloomPass
-              args={[
-                new THREE.Vector2(1024, 1024),
-                VISUAL_PRESET.bloomStrength,
-                VISUAL_PRESET.bloomRadius,
-                VISUAL_PRESET.bloomThreshold,
-              ]}
-            />
-          </Effects>
         </Canvas>
       </div>
     );
