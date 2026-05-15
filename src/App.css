@@ -140,6 +140,49 @@
   background: #ffffff;
 }
 
+.instagram-gallery-image {
+  width: 100%;
+  height: 100%;
+  border-radius: 10px;
+  object-fit: cover;
+  display: block;
+  background: #ffffff;
+}
+
+.instagram-gallery-video {
+  width: 100%;
+  height: 100%;
+  border-radius: 10px;
+  object-fit: cover;
+  display: block;
+  background: #000000;
+}
+
+.instagram-gallery-animated {
+  animation: gallerySpinBurst 760ms cubic-bezier(0.2, 0.75, 0.22, 1);
+  transform-origin: center center;
+}
+
+@keyframes gallerySpinBurst {
+  0% {
+    opacity: 0;
+    transform: translate3d(24px, 16px, 0) scale(1.14) rotate(1.8deg);
+    filter: saturate(1.45) contrast(1.15) blur(12px);
+  }
+
+  55% {
+    opacity: 1;
+    transform: translate3d(-8px, -4px, 0) scale(1.03) rotate(-0.6deg);
+    filter: saturate(1.12) contrast(1.04) blur(1.2px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1) rotate(0);
+    filter: saturate(1) contrast(1) blur(0);
+  }
+}
+
 .instagram-embed-blocked {
   width: 100%;
   height: 100%;
@@ -283,7 +326,8 @@
   height: 36px;
 }
 
-.youtube-next-button {
+.youtube-next-button,
+.gallery-next-button {
   position: absolute;
   left: calc(var(--stack-offset-x) + ((100% - var(--stack-offset-x)) / 2));
   bottom: 12px;
@@ -303,12 +347,14 @@
     0 0 0 1px rgba(14, 86, 123, 0.4);
 }
 
-.youtube-next-button:hover {
+.youtube-next-button:hover,
+.gallery-next-button:hover {
   background: linear-gradient(145deg, #1570a0 0%, #105678 100%);
   transform: translateX(-50%) scale(1.05);
 }
 
-.youtube-next-button svg {
+.youtube-next-button svg,
+.gallery-next-button svg {
   width: 30px;
   height: 30px;
 }
@@ -445,18 +491,21 @@
     height: 28px;
   }
 
-  .youtube-next-button {
+  .youtube-next-button,
+  .gallery-next-button {
     width: 48px;
     height: 48px;
     bottom: 8px;
     transform: translateX(-50%);
   }
 
-  .youtube-next-button:hover {
+  .youtube-next-button:hover,
+  .gallery-next-button:hover {
     transform: translateX(-50%) scale(1.04);
   }
 
-  .youtube-next-button svg {
+  .youtube-next-button svg,
+  .gallery-next-button svg {
     width: 24px;
     height: 24px;
   }

@@ -1,38 +1,38 @@
 import { useEffect, useMemo, useState } from "react";
 
 type InstagramSectionProps = {
-  pageUrls: string[];
+  mediaUrls: string[];
+  youtubeUrls: string[];
   autoAdvanceMs?: number;
   tiltXDeg?: number;
   tiltYDeg?: number;
   isDragging?: boolean;
 };
 
-type EmbedPlatform = "instagram" | "youtube";
+type Platform = "gallery" | "youtube";
 
-type EmbeddableTarget = {
-  canEmbed: true;
-  platform: EmbedPlatform;
+type GalleryMediaKind = "image" | "video" | "placeholder";
+
+type GalleryTarget = {
+  platform: "gallery";
+  mediaUrl: string;
+  label: string;
+  mediaKind: GalleryMediaKind;
+};
+
+type YouTubeTarget = {
+  platform: "youtube";
   embedUrl: string;
-  profileUrl: string;
-  fallbackMessage: string;
+  sourceUrl: string;
 };
 
-type NonEmbeddableTarget = {
-  canEmbed: false;
-  profileUrl: string;
-  fallbackMessage: string;
-};
+type CardTarget = GalleryTarget | YouTubeTarget;
 
-type ParsedTarget = EmbeddableTarget | NonEmbeddableTarget;
-
-const EMBEDDABLE_TYPES = new Set(["p", "reel", "tv"]);
-
-const parseYouTubeTarget = (pageUrl: string): ParsedTarget | null => {
-  const fallbackUrl = pageUrl.trim().replace(/\/+$/, "");
+const parseYouTubeTarget = (url: string): YouTubeTarget | null => {
+  const sourceUrl = url.trim().replace(/\/+$/, "");
 
   try {
-    const parsedUrl = new URL(pageUrl);
+    const parsedUrl = new URL(url);
     const host = parsedUrl.hostname.replace(/^www\./, "").toLowerCase();
 
     let videoId: string | null = null;
@@ -52,154 +52,120 @@ const parseYouTubeTarget = (pageUrl: string): ParsedTarget | null => {
       return null;
     }
 
-    const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=0&playsinline=1&loop=1&playlist=${videoId}&rel=0&modestbranding=1`;
     return {
-      canEmbed: true,
       platform: "youtube",
-      embedUrl,
-      profileUrl: fallbackUrl,
-      fallbackMessage: "Could not parse this YouTube URL.",
+      embedUrl: `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=0&playsinline=1&loop=1&playlist=${videoId}&rel=0&modestbranding=1`,
+      sourceUrl,
     };
   } catch {
     return null;
   }
 };
 
-const parseInstagramTarget = (pageUrl: string): ParsedTarget => {
-  const fallbackUrl = pageUrl.trim().replace(/\/+$/, "");
-
-  try {
-    const parsedUrl = new URL(pageUrl);
-    const host = parsedUrl.hostname.replace(/^www\./, "").toLowerCase();
-    if (host !== "instagram.com") {
-      const youtubeTarget = parseYouTubeTarget(pageUrl);
-      if (youtubeTarget) {
-        return youtubeTarget;
-      }
-      return {
-        canEmbed: false,
-        profileUrl: fallbackUrl,
-        fallbackMessage:
-          "Only Instagram post/reel links or valid YouTube links can be embedded.",
-      };
-    }
-
-    const pathParts = parsedUrl.pathname
-      .split("/")
-      .filter((segment) => segment.length > 0);
-
-    const embedTypeIndex = pathParts.findIndex((segment) =>
-      EMBEDDABLE_TYPES.has(segment.toLowerCase()),
-    );
-    const contentType =
-      embedTypeIndex >= 0
-        ? pathParts[embedTypeIndex]?.toLowerCase()
-        : undefined;
-    const shortcode =
-      embedTypeIndex >= 0 ? pathParts[embedTypeIndex + 1] : undefined;
-    if (contentType && shortcode && EMBEDDABLE_TYPES.has(contentType)) {
-      return {
-        canEmbed: true,
-        platform: "instagram",
-        embedUrl: `https://www.instagram.com/${contentType}/${shortcode}/embed/captioned/`,
-        profileUrl: fallbackUrl,
-        fallbackMessage:
-          "Instagram only allows embedding individual posts/reels, not full profile pages.",
-      };
-    }
-
-    return {
-      canEmbed: false,
-      profileUrl: fallbackUrl,
-      fallbackMessage:
-        "Instagram only allows embedding individual posts/reels, not full profile pages.",
-    };
-  } catch {
-    return {
-      canEmbed: false,
-      profileUrl: fallbackUrl,
-      fallbackMessage: "This link could not be parsed for embedding.",
-    };
+const toImageAlt = (imageUrl: string, index: number) => {
+  const lastPart = imageUrl.split("/").filter(Boolean).pop();
+  if (!lastPart) {
+    return `Gallery photo ${index + 1}`;
   }
+
+  return lastPart
+    .replace(/\.[a-zA-Z0-9]+$/, "")
+    .replace(/[-_]+/g, " ")
+    .trim();
+};
+
+const getGalleryMediaKind = (mediaUrl: string): GalleryMediaKind => {
+  const cleanPath = mediaUrl.split(/[?#]/)[0].toLowerCase();
+  return /\.(mp4|webm|mov)$/.test(cleanPath) ? "video" : "image";
 };
 
 export default function InstagramSection({
-  pageUrls,
+  mediaUrls,
+  youtubeUrls,
   autoAdvanceMs = 9000,
   tiltXDeg = 0,
   tiltYDeg = 0,
   isDragging = false,
 }: InstagramSectionProps) {
-  const targets = useMemo(
-    () => pageUrls.map((url) => parseInstagramTarget(url)),
-    [pageUrls],
+  const galleryTargets = useMemo(
+    () =>
+      mediaUrls
+        .map((mediaUrl, index): GalleryTarget | null => {
+          const cleaned = mediaUrl.trim();
+          if (!cleaned) {
+            return null;
+          }
+
+          return {
+            platform: "gallery",
+            mediaUrl: cleaned,
+            label: toImageAlt(cleaned, index),
+            mediaKind: getGalleryMediaKind(cleaned),
+          };
+        })
+        .filter((target): target is GalleryTarget => Boolean(target)),
+    [mediaUrls],
   );
 
-  const instagramTargets = targets.filter(
-    (target): target is EmbeddableTarget =>
-      "platform" in target && target.platform === "instagram",
-  );
-  const youtubeTargets = targets.filter(
-    (target): target is EmbeddableTarget =>
-      "platform" in target && target.platform === "youtube",
+  const youtubeTargets = useMemo(
+    () =>
+      youtubeUrls
+        .map((url) => parseYouTubeTarget(url))
+        .filter((target): target is YouTubeTarget => Boolean(target)),
+    [youtubeUrls],
   );
 
-  const [activeInstagramIndex, setActiveInstagramIndex] = useState(0);
+  const [activeGalleryIndex, setActiveGalleryIndex] = useState(0);
   const [activeYoutubeIndex, setActiveYoutubeIndex] = useState(0);
-  const [embedFailures, setEmbedFailures] = useState<
-    Partial<Record<EmbedPlatform, boolean>>
-  >({});
-  const isGithubPagesHost =
-    typeof window !== "undefined" &&
-    window.location.hostname.toLowerCase().endsWith("github.io");
+  const [brokenMedia, setBrokenMedia] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    if (instagramTargets.length <= 1) {
+    if (galleryTargets.length <= 1) {
       return;
     }
 
     const timer = window.setInterval(() => {
-      setActiveInstagramIndex(
-        (current) => (current + 1) % instagramTargets.length,
-      );
+      setActiveGalleryIndex((current) => (current + 1) % galleryTargets.length);
     }, autoAdvanceMs);
 
     return () => {
       window.clearInterval(timer);
     };
-  }, [autoAdvanceMs, instagramTargets.length]);
+  }, [autoAdvanceMs, galleryTargets.length]);
 
-  const activeInstagramTarget =
-    instagramTargets.length === 0
-      ? undefined
-      : instagramTargets[activeInstagramIndex % instagramTargets.length];
+  const activeGalleryTarget =
+    galleryTargets.length === 0
+      ? {
+          platform: "gallery" as const,
+          mediaUrl: "",
+          label: "Gallery placeholder",
+          mediaKind: "placeholder" as const,
+        }
+      : galleryTargets[activeGalleryIndex % galleryTargets.length];
 
   const activeYoutubeTarget =
     youtubeTargets.length === 0
       ? undefined
       : youtubeTargets[activeYoutubeIndex % youtubeTargets.length];
 
-  const stackTargets = [activeInstagramTarget, activeYoutubeTarget].filter(
-    (target): target is EmbeddableTarget => Boolean(target),
+  const stackTargets = [activeGalleryTarget, activeYoutubeTarget].filter(
+    (target): target is CardTarget => Boolean(target),
   );
-  const [frontPlatform, setFrontPlatform] =
-    useState<EmbedPlatform>("instagram");
+  const [frontPlatform, setFrontPlatform] = useState<Platform>("gallery");
 
-  const effectiveFrontPlatform: EmbedPlatform = stackTargets.some(
+  const effectiveFrontPlatform: Platform = stackTargets.some(
     (target) => target.platform === frontPlatform,
   )
     ? frontPlatform
-    : activeInstagramTarget
-      ? "instagram"
-      : "youtube";
+    : "gallery";
 
-  const fallbackTarget = targets.find((target) => !target.canEmbed) ?? null;
-
-  const renderTargets = [activeInstagramTarget, activeYoutubeTarget].filter(
-    (target): target is EmbeddableTarget => Boolean(target),
+  const renderTargets = [activeGalleryTarget, activeYoutubeTarget].filter(
+    (target): target is CardTarget => Boolean(target),
   );
 
   const canSwapCards = stackTargets.length > 1;
+  const canAdvanceGallery =
+    effectiveFrontPlatform === "gallery" && galleryTargets.length > 1;
   const canAdvanceYoutube =
     effectiveFrontPlatform === "youtube" && youtubeTargets.length > 1;
 
@@ -209,7 +175,7 @@ export default function InstagramSection({
     }
 
     setFrontPlatform((current) =>
-      current === "instagram" ? "youtube" : "instagram",
+      current === "gallery" ? "youtube" : "gallery",
     );
   };
 
@@ -221,14 +187,22 @@ export default function InstagramSection({
     setActiveYoutubeIndex((current) => (current + 1) % youtubeTargets.length);
   };
 
-  const handleEmbedError = (platform: EmbedPlatform) => {
-    setEmbedFailures((current) =>
-      current[platform] ? current : { ...current, [platform]: true },
+  const handleNextGallery = () => {
+    if (galleryTargets.length <= 1) {
+      return;
+    }
+
+    setActiveGalleryIndex((current) => (current + 1) % galleryTargets.length);
+  };
+
+  const handleMediaError = (mediaUrl: string) => {
+    setBrokenMedia((current) =>
+      current[mediaUrl] ? current : { ...current, [mediaUrl]: true },
     );
   };
 
   return (
-    <section className="instagram-section" aria-label="Instagram">
+    <section className="instagram-section" aria-label="Media gallery">
       <div className="instagram-card">
         <div
           className={`instagram-tilt-layer${isDragging ? " is-dragging" : ""}`}
@@ -236,133 +210,141 @@ export default function InstagramSection({
             transform: `perspective(1400px) rotateX(${tiltXDeg}deg) rotateY(${tiltYDeg}deg)`,
           }}
         >
-          {stackTargets.length === 0 ? (
-            <div className="instagram-fallback">
-              <p className="instagram-note">
-                {fallbackTarget?.fallbackMessage ??
-                  "Add one Instagram post link and one YouTube video link."}
-              </p>
-              {fallbackTarget ? (
-                <a
-                  className="instagram-link"
-                  href={fallbackTarget.profileUrl}
-                  target="_blank"
-                  rel="noreferrer"
+          <div className="instagram-stack-host">
+            {renderTargets.map((target) => {
+              const isFrontCard = target.platform === effectiveFrontPlatform;
+              return (
+                <button
+                  key={target.platform}
+                  type="button"
+                  className={`instagram-media-card${
+                    isFrontCard ? " is-front" : " is-back"
+                  }`}
+                  aria-label={`${target.platform} card`}
                 >
-                  Open this link
-                </a>
-              ) : null}
-            </div>
-          ) : (
-            <div className="instagram-stack-host">
-              {renderTargets.map((target) => {
-                const isFrontCard = target.platform === effectiveFrontPlatform;
-                const isInstagramBlocked =
-                  target.platform === "instagram" &&
-                  (isGithubPagesHost || Boolean(embedFailures.instagram));
-                const isYoutubeBlocked =
-                  target.platform === "youtube" &&
-                  Boolean(embedFailures.youtube);
-                const isEmbedBlocked = isInstagramBlocked || isYoutubeBlocked;
-                return (
-                  <button
-                    key={target.platform}
-                    type="button"
-                    className={`instagram-media-card${
-                      isFrontCard ? " is-front" : " is-back"
-                    }${isEmbedBlocked ? " is-link-card" : ""}`}
-                    aria-label={
-                      isEmbedBlocked
-                        ? `Open ${target.platform} in a new tab`
-                        : `${target.platform} card`
-                    }
-                    onClick={
-                      isEmbedBlocked
-                        ? () => {
-                            window.open(
-                              target.profileUrl,
-                              "_blank",
-                              "noopener,noreferrer",
-                            );
-                          }
-                        : undefined
-                    }
-                  >
-                    <div className="instagram-embed-host">
-                      {isEmbedBlocked ? (
+                  <div className="instagram-embed-host">
+                    {target.platform === "gallery" ? (
+                      target.mediaKind === "placeholder" ? (
                         <div className="instagram-embed-blocked">
                           <p>
-                            {isInstagramBlocked && isGithubPagesHost
-                              ? "Instagram blocks iframe embeds on GitHub Pages. Click to open this post on Instagram."
-                              : `Could not load this ${target.platform} embed. Click to open it in a new tab.`}
+                            Add media files in src/assets/instagram-gallery or
+                            public/instagram-gallery to fill this card.
                           </p>
                         </div>
-                      ) : (
-                        <iframe
-                          src={target.embedUrl}
-                          title={`${target.platform} embed`}
-                          className={`instagram-embed ${
-                            isFrontCard ? "is-front-embed" : "is-back-embed"
-                          }`}
-                          loading="lazy"
-                          allow="autoplay; clipboard-write; encrypted-media; picture-in-picture"
-                          onError={() => handleEmbedError(target.platform)}
-                        />
-                      )}
-                      {target.platform === "youtube" ? (
-                        <div className="muted-audio-badge" aria-hidden="true">
-                          <svg viewBox="0 0 24 24" className="muted-audio-icon">
-                            <path
-                              d="M4 10h4l5-4v12l-5-4H4z"
-                              fill="currentColor"
-                            />
-                            <path
-                              d="M16 9.5a3.5 3.5 0 0 1 0 5"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                            />
-                            <path
-                              d="M18.5 7a7 7 0 0 1 0 10"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                            />
-                          </svg>
-                          <span className="muted-bars" aria-hidden="true">
-                            <span className="bar bar-1" />
-                            <span className="bar bar-2" />
-                            <span className="bar bar-3" />
-                          </span>
+                      ) : brokenMedia[target.mediaUrl] ? (
+                        <div className="instagram-embed-blocked">
+                          <p>
+                            Missing media: {target.mediaUrl}
+                            <br />
+                            Add this file in src/assets/instagram-gallery or
+                            public/instagram-gallery.
+                          </p>
                         </div>
-                      ) : null}
-                    </div>
-                  </button>
-                );
-              })}
-              {canAdvanceYoutube ? (
-                <button
-                  type="button"
-                  className="youtube-next-button"
-                  onClick={handleNextYoutube}
-                  aria-label="Play next YouTube video"
-                >
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M8 7.5 15.5 12 8 16.5z" fill="currentColor" />
-                    <path
-                      d="M18 7v10"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                    />
-                  </svg>
+                      ) : target.mediaKind === "video" ? (
+                        <video
+                          key={`gallery-video-${activeGalleryIndex}-${target.mediaUrl}`}
+                          src={target.mediaUrl}
+                          className="instagram-gallery-video instagram-gallery-animated"
+                          autoPlay
+                          loop
+                          muted
+                          playsInline
+                          preload="metadata"
+                          onError={() => handleMediaError(target.mediaUrl)}
+                        />
+                      ) : (
+                        <img
+                          key={`gallery-image-${activeGalleryIndex}-${target.mediaUrl}`}
+                          src={target.mediaUrl}
+                          alt={target.label}
+                          className="instagram-gallery-image instagram-gallery-animated"
+                          loading="lazy"
+                          onError={() => handleMediaError(target.mediaUrl)}
+                        />
+                      )
+                    ) : (
+                      <iframe
+                        src={target.embedUrl}
+                        title={`${target.platform} embed`}
+                        className={`instagram-embed ${
+                          isFrontCard ? "is-front-embed" : "is-back-embed"
+                        }`}
+                        loading="lazy"
+                        allow="autoplay; clipboard-write; encrypted-media; picture-in-picture"
+                      />
+                    )}
+                    {target.platform === "youtube" ? (
+                      <div className="muted-audio-badge" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" className="muted-audio-icon">
+                          <path
+                            d="M4 10h4l5-4v12l-5-4H4z"
+                            fill="currentColor"
+                          />
+                          <path
+                            d="M16 9.5a3.5 3.5 0 0 1 0 5"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                          />
+                          <path
+                            d="M18.5 7a7 7 0 0 1 0 10"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                          />
+                        </svg>
+                        <span className="muted-bars" aria-hidden="true">
+                          <span className="bar bar-1" />
+                          <span className="bar bar-2" />
+                          <span className="bar bar-3" />
+                        </span>
+                      </div>
+                    ) : null}
+                  </div>
                 </button>
-              ) : null}
-            </div>
-          )}
+              );
+            })}
+            {canAdvanceYoutube ? (
+              <button
+                type="button"
+                className="youtube-next-button"
+                onClick={handleNextYoutube}
+                aria-label="Play next YouTube video"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M8 7.5 15.5 12 8 16.5z" fill="currentColor" />
+                  <path
+                    d="M18 7v10"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </button>
+            ) : null}
+            {canAdvanceGallery ? (
+              <button
+                type="button"
+                className="gallery-next-button"
+                onClick={handleNextGallery}
+                aria-label="Show next gallery media"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M8 7.5 15.5 12 8 16.5z" fill="currentColor" />
+                  <path
+                    d="M18 7v10"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </button>
+            ) : null}
+          </div>
         </div>
         {canSwapCards ? (
           <button
